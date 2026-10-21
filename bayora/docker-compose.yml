@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: bayora, POSTGRES_PASSWORD: bayora, POSTGRES_DB: bayora }
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U bayora"], interval: 3s, retries: 15 }
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg2://bayora:bayora@db:5432/bayora
+      SANDBOX_MODE: ${SANDBOX_MODE:-simulated}   # set to "docker" to launch real hardened containers
+      CORS_ORIGINS: http://localhost:3000
+      ENABLE_TAMPER_DEMO: "1"   # demo only; remove in production
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]  # only needed for SANDBOX_MODE=docker
+    depends_on: { db: { condition: service_healthy } }
+    ports: ["8000:8000"]
+  frontend:
+    build: ./frontend
+    environment: { NEXT_PUBLIC_API_URL: http://localhost:8000 }
+    ports: ["3000:3000"]
+    depends_on: [backend]
+volumes: { pgdata: {} }
